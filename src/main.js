@@ -145,6 +145,14 @@ function lineInCircle(p, x, y, len, angle, cx, cy, r) {
   if (t1 <= t0) return;
   p.line(x0 + dx * t0, y0 + dy * t0, x0 + dx * t1, y0 + dy * t1);
 }
+function segmentClearOfCircle(x, y, len, angle, cx, cy, r) {
+  const ux = Math.cos(angle), uy = Math.sin(angle);
+  const x0 = x - ux * len / 2, y0 = y - uy * len / 2;
+  const x1 = x + ux * len / 2, y1 = y + uy * len / 2;
+  const dx = x1 - x0, dy = y1 - y0, denom = dx * dx + dy * dy;
+  const t = denom === 0 ? 0 : Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / denom));
+  return Math.hypot(x0 + dx * t - cx, y0 + dy * t - cy) > r;
+}
 function lineInRect(p, x, y, len, angle, rect = bounds()) {
   let x0 = x - Math.cos(angle) * len / 2, y0 = y - Math.sin(angle) * len / 2;
   let x1 = x + Math.cos(angle) * len / 2, y1 = y + Math.sin(angle) * len / 2;
@@ -213,6 +221,28 @@ function crossHatching(p, c) {
       }
     }
   };
+  const outsideHatches = () => {
+    const b = bounds(), rect = { x0: b.x0 + 7, y0: b.y0 + 7, x1: b.x1 - 7, y1: b.y1 - 7 };
+    const baseAngle = p.radians(c.angle), len = 7.2, clearR = r + 6;
+    const clusters = [
+      { angle: -56, start: r + 14, stop: r + 43, count: 20, jitter: 4.5 },
+      { angle: 34, start: r + 18, stop: r + 38, count: 12, jitter: 3.5 },
+    ];
+    for (const cluster of clusters) {
+      const theta = p.radians(cluster.angle), tangent = theta + p.HALF_PI;
+      for (let i = 0; i < cluster.count; i++) {
+        const radial = p.map(i, 0, Math.max(1, cluster.count - 1), cluster.start, cluster.stop) + p.random(-cluster.jitter, cluster.jitter);
+        const along = p.random(-28, 28);
+        const x = cx + Math.cos(theta) * radial + Math.cos(tangent) * along;
+        const y = cy + Math.sin(theta) * radial + Math.sin(tangent) * along;
+        const lineAngle = baseAngle + p.random(-.08, .08);
+        if (x < rect.x0 || x > rect.x1 || y < rect.y0 || y > rect.y1) continue;
+        if (!segmentClearOfCircle(x, y, len, lineAngle, cx, cy, clearR)) continue;
+        lineInRect(p, x, y, len, lineAngle, rect);
+      }
+    }
+  };
+  outsideHatches();
   hatchCircle(c.angle, c.spacing, .14);
   if (c.layers > 1) hatchCircle(-c.angle, c.spacing * 1.05, .48);
   if (c.layers > 2) hatchCircle(c.angle + 72, c.spacing * 1.25, .69);
