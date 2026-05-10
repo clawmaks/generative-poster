@@ -9,6 +9,8 @@ import './style.css';
 const W = 816; // 8.5in @ 96dpi
 const H = 1056; // 11in @ 96dpi
 const M = 72;
+const BASE_URL = import.meta.env.BASE_URL;
+const assetUrl = (path) => `${BASE_URL}${path.replace(/^\//, '')}`;
 const state = { seed: 12345, generatorId: 'random-walk', exportSvg: false, params: {} };
 let gui;
 let referenceImage;
@@ -98,7 +100,7 @@ function rebuildGui() {
 }
 
 function sketch(p) {
-  p.preload = () => { referenceImage = p.loadImage('/reference-poster.jpg'); };
+  p.preload = () => { referenceImage = p.loadImage(assetUrl('reference-poster.jpg')); };
   p.setup = () => {
     p5.disableFriendlyErrors = true;
     p.createCanvas(W, H).parent('canvasWrap');
@@ -148,4 +150,5 @@ function spaceFillingCurves(p, c) { const n=1<<c.order, total=n*n, b=bounds(), s
 function imageTrace(p, c) { if (!referenceImage) return; referenceImage.loadPixels(); const b=bounds(), sx=referenceImage.width/b.w, sy=referenceImage.height/b.h, angle=p.radians(c.angle); for(let y=b.y0; y<b.y1; y+=c.cell) for(let x=b.x0; x<b.x1; x+=c.cell) { const ix=Math.floor((x-b.x0)*sx), iy=Math.floor((y-b.y0)*sy), idx=4*(iy*referenceImage.width+ix); const bright=(referenceImage.pixels[idx]+referenceImage.pixels[idx+1]+referenceImage.pixels[idx+2])/3; if (bright < c.threshold) lineClip(p, x, y, p.map(bright,0,c.threshold,c.maxLine,1), angle + (bright/255-.5)); } }
 
 setupUI();
+document.querySelector('#referencePoster')?.setAttribute('src', assetUrl('reference-poster.jpg'));
 new p5(sketch);
