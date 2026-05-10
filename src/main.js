@@ -131,6 +131,20 @@ function sketch(p) {
 function drawFrame(p) { p.push(); p.noFill(); p.stroke('#bdb3a3'); p.strokeWeight(1); p.rect(M / 2, M / 2, W - M, H - M); p.pop(); }
 function bounds() { return { x0: M, y0: M, x1: W - M, y1: H - M, w: W - 2 * M, h: H - 2 * M }; }
 function lineClip(p, x, y, len, angle) { const dx = Math.cos(angle) * len / 2, dy = Math.sin(angle) * len / 2; p.line(x - dx, y - dy, x + dx, y + dy); }
+function lineInCircle(p, x, y, len, angle, cx, cy, r) {
+  const ux = Math.cos(angle), uy = Math.sin(angle);
+  const x0 = x - ux * len / 2, y0 = y - uy * len / 2;
+  const x1 = x + ux * len / 2, y1 = y + uy * len / 2;
+  const dx = x1 - x0, dy = y1 - y0, fx = x0 - cx, fy = y0 - cy;
+  const a = dx * dx + dy * dy, bb = 2 * (fx * dx + fy * dy), cc = fx * fx + fy * fy - r * r;
+  const disc = bb * bb - 4 * a * cc;
+  if (disc < 0) return;
+  const root = Math.sqrt(disc);
+  let t0 = (-bb - root) / (2 * a), t1 = (-bb + root) / (2 * a);
+  t0 = Math.max(0, t0); t1 = Math.min(1, t1);
+  if (t1 <= t0) return;
+  p.line(x0 + dx * t0, y0 + dy * t0, x0 + dx * t1, y0 + dy * t1);
+}
 function lineInRect(p, x, y, len, angle, rect = bounds()) {
   let x0 = x - Math.cos(angle) * len / 2, y0 = y - Math.sin(angle) * len / 2;
   let x1 = x + Math.cos(angle) * len / 2, y1 = y + Math.sin(angle) * len / 2;
@@ -183,7 +197,27 @@ function makePoints(p, n, jitter = 1) { const b = bounds(), pts = []; const cols
 function voronoi(p, c) { const b = bounds(); let pts = makePoints(p, c.sites, c.jitter); for (let r = 0; r < c.relax; r++) { const d = Delaunay.from(pts), v = d.voronoi([b.x0, b.y0, b.x1, b.y1]); pts = pts.map((pt, i) => { const cell = v.cellPolygon(i); if (!cell) return pt; const avg = cell.reduce((a, q) => [a[0]+q[0], a[1]+q[1]], [0,0]); return [avg[0]/cell.length, avg[1]/cell.length]; }); } const d = Delaunay.from(pts), v = d.voronoi([b.x0, b.y0, b.x1, b.y1]); for (let i = 0; i < pts.length; i++) { const cell = v.cellPolygon(i); if (cell) polyline(p, cell, true); if (c.circles) p.circle(pts[i][0], pts[i][1], 3); } }
 function delaunayTriangles(p, c) { const pts = makePoints(p, c.points, c.jitter), d = Delaunay.from(pts); for (let i = 0; i < d.triangles.length; i += 3) { const tri = [pts[d.triangles[i]], pts[d.triangles[i+1]], pts[d.triangles[i+2]]]; const edges = [[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]]; if (edges.some(([a,b]) => Math.hypot(a[0]-b[0], a[1]-b[1]) > c.longEdge) || p.random() < c.prune) continue; polyline(p, tri, true); } }
 function hatching(p, c) { const b = bounds(), pad = 8, inner = { x0: b.x0 + pad, y0: b.y0 + pad, x1: b.x1 - pad, y1: b.y1 - pad }; const cx = W / 2, len = W * 2.2; for (let y = inner.y0; y <= inner.y1; y += c.spacing) { for (let band = 0; band < c.bands; band++) { const yy = y + (band - (c.bands - 1) / 2) * 1.6; const x = cx + Math.sin((yy + band * 17) * 0.05) * c.wave; lineInRect(p, x, yy, len, p.radians(c.angle), inner); } } }
-function crossHatching(p, c) { const cx = W / 2, cy = H / 2 - 8, r = bounds().w * .39 * c.maskRadius; const hatchCircle = (angle, spacing, threshold) => { const a = p.radians(angle), tx = Math.cos(a), ty = Math.sin(a), nx = Math.cos(a + p.HALF_PI), ny = Math.sin(a + p.HALF_PI); for (let off = -r; off <= r; off += spacing) { const chord = Math.sqrt(Math.max(0, r * r - off * off)); for (let t = -chord; t < chord; t += 8) { const mx = cx + nx * off + tx * (t + 4), my = cy + ny * off + ty * (t + 4); const lx = (mx - cx) / r, ly = (my - cy) / r; const darkness = p.constrain(.50 + lx * .58 + ly * .42, 0, 1); if (darkness < threshold || p.random() > darkness) continue; lineClip(p, mx, my, 8.5 * p.map(darkness, 0, 1, .55, 1.2), a + ly * .12); } } }; hatchCircle(c.angle, c.spacing, .14); if (c.layers > 1) hatchCircle(-c.angle, c.spacing * 1.05, .48); if (c.layers > 2) hatchCircle(c.angle + 72, c.spacing * 1.25, .69); p.circle(cx, cy, r * 2); }
+function crossHatching(p, c) {
+  const cx = W / 2, cy = H / 2 - 8, r = bounds().w * .39 * c.maskRadius;
+  const hatchR = r - 10;
+  const hatchCircle = (angle, spacing, threshold) => {
+    const a = p.radians(angle), tx = Math.cos(a), ty = Math.sin(a), nx = Math.cos(a + p.HALF_PI), ny = Math.sin(a + p.HALF_PI);
+    for (let off = -hatchR; off <= hatchR; off += spacing) {
+      const chord = Math.sqrt(Math.max(0, hatchR * hatchR - off * off));
+      for (let t = -chord; t < chord; t += 7.2) {
+        const mx = cx + nx * off + tx * (t + 3.6), my = cy + ny * off + ty * (t + 3.6);
+        const lx = (mx - cx) / r, ly = (my - cy) / r;
+        const darkness = p.constrain(.50 + lx * .58 + ly * .42, 0, 1);
+        if (darkness < threshold || p.random() > darkness) continue;
+        lineInCircle(p, mx, my, 6.6 * p.map(darkness, 0, 1, .55, 1.12), a + ly * .06, cx, cy, hatchR);
+      }
+    }
+  };
+  hatchCircle(c.angle, c.spacing, .14);
+  if (c.layers > 1) hatchCircle(-c.angle, c.spacing * 1.05, .48);
+  if (c.layers > 2) hatchCircle(c.angle + 72, c.spacing * 1.25, .69);
+  p.circle(cx, cy, r * 2);
+}
 function noiseFields(p, c) { const b = bounds(); for (let i = 0; i < c.agents; i++) { let x = p.random(b.x0, b.x1), y = p.random(b.y0, b.y1); p.beginShape(); for (let s = 0; s < c.steps; s++) { p.vertex(x, y); const a = p.noise(x * c.scale, y * c.scale) * p.TAU * c.curl; x += Math.cos(a) * c.step; y += Math.sin(a) * c.step; if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) break; } p.endShape(); } }
 function attractorSystems(p, c) { const sigma = 10, rho = 28, beta = 8 / 3, dt = .006; p.translate(W / 2, H / 2 + 2); for (let k = 0; k < c.particles; k++) { let x = .1 + k * .02, y = 0, z = 0; p.beginShape(); for (let i = 0; i < c.steps; i++) { const dx = sigma * (y - x), dy = x * (rho - z) - y, dz = x * y - beta * z; x += dx * dt; y += dy * dt; z += dz * dt; if (i > 80) p.vertex(x * 3.55, z * 3.2 - 52); } p.endShape(); } }
 function rosettes(p, c) { p.translate(W/2,H/2); for (let ring=0; ring<c.rings; ring++) { const phase = ring * p.TAU / (c.rings * 2); const scale = 1 - ring * .055; p.beginShape(); for (let i=0; i<=c.samples; i++) { const t = i/c.samples*p.TAU; const rr = c.radius * scale * Math.sin(c.petals * t / 2 + phase) * (1 + c.modulation * .12 * Math.sin(t * c.petals)); p.vertex(Math.cos(t)*rr, Math.sin(t)*rr); } p.endShape(); } p.circle(0, 0, c.radius * .18); }
