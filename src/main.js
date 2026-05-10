@@ -53,7 +53,7 @@ const generators = [
   { id: 'epicycloids', name: '12 Epicycloids / Spirograph', defaults: { R: 42, r: 17, d: 42, repeats: 7, samples: 1200 }, controls: {
     R: [10, 90, 1], r: [4, 55, 1], d: [4, 90, 1], repeats: [1, 16, 1], samples: [200, 4000, 1]
   }, draw: epicycloids },
-  { id: 'bezier-flow-fields', name: '13 Bezier Flow Fields', defaults: { curves: 32, scale: 0.026, length: 86, bend: 1.05 }, controls: {
+  { id: 'bezier-flow-fields', name: '13 Bezier Flow Fields', defaults: { curves: 100, scale: 0.018, length: 38, bend: 0.82 }, controls: {
     curves: [5, 260, 1], scale: [0.002, 0.04, .001], length: [10, 110, 1], bend: [0, 1.8, .01]
   }, draw: bezierFlowFields },
   { id: 'space-filling-curves', name: '14 Space Filling Curves', defaults: { order: 5, margin: 20, wobble: 0, skip: 1 }, controls: {
@@ -252,7 +252,32 @@ function noiseFields(p, c) { const b = bounds(); for (let i = 0; i < c.agents; i
 function attractorSystems(p, c) { const sigma = 10, rho = 28, beta = 8 / 3, dt = .006; p.translate(W / 2, H / 2 + 2); for (let k = 0; k < c.particles; k++) { let x = .1 + k * .02, y = 0, z = 0; p.beginShape(); for (let i = 0; i < c.steps; i++) { const dx = sigma * (y - x), dy = x * (rho - z) - y, dz = x * y - beta * z; x += dx * dt; y += dy * dt; z += dz * dt; if (i > 80) p.vertex(x * 3.55, z * 3.2 - 52); } p.endShape(); } }
 function rosettes(p, c) { p.translate(W/2,H/2); for (let ring=0; ring<c.rings; ring++) { const phase = ring * p.TAU / (c.rings * 2); const scale = 1 - ring * .055; p.beginShape(); for (let i=0; i<=c.samples; i++) { const t = i/c.samples*p.TAU; const rr = c.radius * scale * Math.sin(c.petals * t / 2 + phase) * (1 + c.modulation * .12 * Math.sin(t * c.petals)); p.vertex(Math.cos(t)*rr, Math.sin(t)*rr); } p.endShape(); } p.circle(0, 0, c.radius * .18); }
 function epicycloids(p, c) { p.translate(W/2,H/2); p.beginShape(); for (let i=0;i<=c.samples;i++) { const t=i/c.samples*p.TAU*c.repeats; const x=(c.R+c.r)*Math.cos(t)-c.d*Math.cos(((c.R+c.r)/c.r)*t); const y=(c.R+c.r)*Math.sin(t)-c.d*Math.sin(((c.R+c.r)/c.r)*t); p.vertex(x,y); } p.endShape(); }
-function bezierFlowFields(p, c) { const b = bounds(); for (let i = 0; i < c.curves; i++) { const y = p.map(i, 0, c.curves - 1, b.y0 + 10, b.y1 - 10) + Math.sin(i * .55) * 3; const amp = (p.noise(i * c.scale * 55, state.seed * .002) - .5) * c.length * c.bend; const x0 = b.x0 - 8, x3 = b.x1 + 8; const x1 = b.x0 + b.w * (.26 + .04 * Math.sin(i)); const x2 = b.x0 + b.w * (.69 + .05 * Math.cos(i * .7)); const y1 = y + amp + Math.sin(i * .45) * 10; const y2 = y - amp * .72 + Math.cos(i * .37) * 12; p.bezier(x0, y, x1, y1, x2, y2, x3, y + Math.sin(i * .31) * 8); } }
+function bezierFlowFields(p, c) {
+  const b0 = bounds(), pad = 10, b = { x0: b0.x0 + pad, y0: b0.y0 + pad, x1: b0.x1 - pad, y1: b0.y1 - pad, w: b0.w - pad * 2, h: b0.h - pad * 2 };
+  const cols = Math.ceil(Math.sqrt(c.curves * b.w / b.h)), rows = Math.ceil(c.curves / cols);
+  const inside = (...pts) => pts.every(([x, y]) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1);
+  for (let i = 0; i < c.curves; i++) {
+    const col = i % cols, row = Math.floor(i / cols);
+    const gx = (col + .5) / cols, gy = (row + .5) / rows;
+    let x = b.x0 + gx * b.w + p.random(-b.w / cols * .14, b.w / cols * .14);
+    let y = b.y0 + gy * b.h + p.random(-b.h / rows * .14, b.h / rows * .14);
+    const wave = Math.sin(gy * p.TAU * 1.55 + gx * 1.65) * .36;
+    const diagonal = -.22 + gy * .34;
+    const noiseTurn = (p.noise(x * c.scale, y * c.scale) - .5) * .82 * c.bend;
+    const angle = diagonal + wave + noiseTurn;
+    const len = c.length * p.random(.72, 1.18);
+    const curve = len * (.27 + p.random(.02, .08)) * c.bend;
+    const x0 = x - Math.cos(angle) * len / 2, y0 = y - Math.sin(angle) * len / 2;
+    const x3 = x + Math.cos(angle) * len / 2, y3 = y + Math.sin(angle) * len / 2;
+    const bendDir = Math.sin(gy * p.TAU * 1.55 + gx * 1.1) > 0 ? 1 : -1;
+    const a1 = angle + bendDir * p.random(.28, .48) * c.bend;
+    const a2 = angle - bendDir * p.random(.28, .48) * c.bend;
+    const x1 = x0 + Math.cos(a1) * curve, y1 = y0 + Math.sin(a1) * curve;
+    const x2 = x3 - Math.cos(a2) * curve, y2 = y3 - Math.sin(a2) * curve;
+    if (!inside([x0, y0], [x1, y1], [x2, y2], [x3, y3])) continue;
+    p.bezier(x0, y0, x1, y1, x2, y2, x3, y3);
+  }
+}
 function hilbert(i, order) { let x=0,y=0; for(let s=1, t=i; s < (1<<order); s*=2) { const rx = 1 & (t/2), ry = 1 & (t ^ rx); if (ry === 0) { if (rx === 1) { x = s-1-x; y = s-1-y; } [x,y]=[y,x]; } x += s*rx; y += s*ry; t = Math.floor(t/4); } return [x,y]; }
 function spaceFillingCurves(p, c) { const n=1<<c.order, total=n*n, b=bounds(), s=(Math.min(b.w,b.h)-2*c.margin)/(n-1), ox=W/2-s*(n-1)/2, oy=H/2-s*(n-1)/2; p.beginShape(); for(let i=0;i<total;i+=c.skip) { const [x,y]=hilbert(i,c.order); p.vertex(ox+x*s+p.random(-c.wobble,c.wobble), oy+y*s+p.random(-c.wobble,c.wobble)); } p.endShape(); }
 function imageTrace(p, c) { const b = bounds(), sun = { x: b.x0 + b.w * .26, y: b.y0 + b.h * .25, r: b.w * .13 }; p.circle(sun.x, sun.y, sun.r * 2); const ridges = []; for (let l = 0; l < 7; l++) { const baseY = b.y0 + b.h * (.40 + l * .072), amp = 21 - l * 1.7, pts = []; p.beginShape(); for (let x = b.x0; x <= b.x1; x += 4) { const y = baseY + Math.sin(x * .035 + l * 1.7) * amp * .42 + p.noise(x * .02, l * .7) * amp; pts.push([x, y]); p.vertex(x, y); } p.endShape(); ridges.push({ baseY, amp, pts, l }); } for (const { baseY, amp, l } of ridges) { for (let y = baseY + 10; y < b.y1 - 10; y += c.cell * 1.55 + l * .35) { for (let x = b.x0 + (l % 2) * 5; x < b.x1; x += c.cell * 2.4) { const ridge = baseY + Math.sin(x * .035 + l * 1.7) * amp * .42 + p.noise(x * .02, l * .7) * amp; if (y < ridge || Math.hypot(x - sun.x, y - sun.y) < sun.r * 1.15) continue; const tone = p.constrain((y - ridge) / (b.y1 - ridge), 0, 1); if (p.random() < tone * .38) lineClip(p, x, y, c.maxLine * (.45 + tone * .55), p.radians(c.angle + l * 5)); } } } }
