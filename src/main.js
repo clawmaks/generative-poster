@@ -26,7 +26,7 @@ const generators = [
   { id: 'spirals', name: '03 Spirals', defaults: { arms: 6, turns: 5.2, spacing: 2.2, wobble: 4, points: 420 }, controls: {
     arms: [1, 16, 1], turns: [1, 14, .1], spacing: [0.5, 6, .1], wobble: [0, 12, .25], points: [60, 1400, 1]
   }, draw: spirals },
-  { id: 'contour-lines', name: '04 Contour Lines', defaults: { resolution: 64, thresholds: 11, scale: 0.014, warp: 0.65 }, controls: {
+  { id: 'contour-lines', name: '04 Contour Lines', defaults: { resolution: 96, thresholds: 12, scale: 0.014, warp: 0.35 }, controls: {
     resolution: [30, 150, 1], thresholds: [4, 36, 1], scale: [0.002, 0.025, .001], warp: [0, 2, .01]
   }, draw: contourLines },
   { id: 'voronoi', name: '05 Voronoi Diagram', defaults: { sites: 70, relax: 1, jitter: 0.55, circles: 0 }, controls: {
@@ -148,7 +148,37 @@ function polyline(p, pts, close = false) { if (pts.length < 2) return; p.beginSh
 function randomWalk(p, c) { const b = bounds(), cx = W / 2, cy = H / 2, rMax = b.w * .34; for (let i = 0; i < c.walkers; i++) { let x = cx + p.random(-14, 14), y = cy + p.random(-14, 14), a = p.random(p.TAU); p.beginShape(); for (let s = 0; s < c.steps; s++) { p.vertex(x, y); const dx = cx - x, dy = cy - y, d = Math.hypot(dx, dy), home = Math.atan2(dy, dx); a += p.random(-c.turnJitter, c.turnJitter) + c.drift * .08; if (d > rMax * .62) a = p.lerp(a, home, .28); x += Math.cos(a) * c.step; y += Math.sin(a) * c.step; const nd = Math.hypot(x - cx, y - cy); if (nd > rMax) { x = cx + (x - cx) / nd * rMax; y = cy + (y - cy) / nd * rMax; a = home + p.random(-.8, .8); } } p.endShape(); } }
 function lSystem(p, c) { let sentence = 'F'; const rule = 'F[+F]F[-F][F]'; for (let i = 0; i < c.iterations; i++) sentence = sentence.replaceAll('F', rule); p.translate(W / 2, H - M); p.scale(c.spread, c.spread); p.rotate(-p.HALF_PI); const stack = []; const len = c.length; const ang = p.radians(c.angle); for (const ch of sentence.slice(0, 25000)) { if (ch === 'F') { p.line(0, 0, len, 0); p.translate(len, 0); } else if (ch === '+') p.rotate(ang); else if (ch === '-') p.rotate(-ang); else if (ch === '[') { p.push(); stack.push(1); } else if (ch === ']' && stack.pop()) p.pop(); } }
 function spirals(p, c) { p.translate(W / 2, H / 2); for (let a0 = 0; a0 < p.TAU; a0 += p.TAU / c.arms) { p.beginShape(); for (let i = 0; i < c.points; i++) { const t = i / (c.points - 1) * c.turns * p.TAU; const r = c.spacing * t; const wob = Math.sin(t * 2.7 + a0 * 3) * c.wobble; p.vertex(Math.cos(t + a0) * (r + wob), Math.sin(t + a0) * (r + wob)); } p.endShape(); } }
-function contourLines(p, c) { const b = bounds(), centers = [[b.x0 + b.w * .30, b.y0 + b.h * .35, 1.05], [b.x0 + b.w * .70, b.y0 + b.h * .45, .85], [b.x0 + b.w * .48, b.y0 + b.h * .72, .95], [b.x0 + b.w * .88, b.y0 + b.h * .78, .55]]; for (const [cx, cy, weight] of centers) { for (let k = 1; k <= c.thresholds; k++) { const rx = k * (4.5 + weight * 2.8), ry = k * (3.7 + weight * 2.2); if (rx > b.w * .34 || ry > b.h * .30) continue; p.beginShape(); for (let i = 0; i <= c.resolution; i++) { const t = i / c.resolution * p.TAU; const wob = 1 + (p.noise(Math.cos(t) * 1.7 + cx * c.scale, Math.sin(t) * 1.7 + cy * c.scale) - .5) * c.warp; p.vertex(cx + Math.cos(t) * rx * wob, cy + Math.sin(t) * ry * wob); } p.endShape(); } } for (let y = b.y0 + 14; y < b.y1; y += 18) { p.beginShape(); for (let x = b.x0; x <= b.x1; x += 5) { const yy = y + Math.sin(x * .045 + y * .03) * 7 + (p.noise(x * .018, y * .02) - .5) * 9 * c.warp; p.vertex(x, yy); } p.endShape(); } }
+function contourLines(p, c) {
+  const b0 = bounds(), inset = 7, b = { x0: b0.x0 + inset, y0: b0.y0 + inset, x1: b0.x1 - inset, y1: b0.y1 - inset, w: b0.w - inset * 2, h: b0.h - inset * 2 }, n = Math.floor(c.resolution), values = [];
+  const hills = [
+    { x: .28, y: .30, sx: .15, sy: .12, h: 1.20 },
+    { x: .67, y: .40, sx: .18, sy: .15, h: .98 },
+    { x: .43, y: .72, sx: .22, sy: .14, h: .88 },
+    { x: .86, y: .76, sx: .13, sy: .18, h: .62 },
+    { x: .08, y: .66, sx: .22, sy: .20, h: .44 }
+  ];
+  let minV = Infinity, maxV = -Infinity;
+  for (let gy = 0; gy < n; gy++) for (let gx = 0; gx < n; gx++) {
+    const x = gx / (n - 1), y = gy / (n - 1);
+    let v = -0.32 * x + 0.18 * y;
+    for (const h of hills) {
+      const dx = (x - h.x) / h.sx, dy = (y - h.y) / h.sy;
+      v += h.h * Math.exp(-(dx * dx + dy * dy) * .5);
+    }
+    v += (p.noise(x / c.scale, y / c.scale) - .5) * .06 * c.warp;
+    values.push(v); minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+  }
+  const thresholds = Array.from({ length: c.thresholds }, (_, i) => p.map(i + 1, 1, c.thresholds, minV + (maxV - minV) * .16, maxV - (maxV - minV) * .08));
+  const cs = contours().size([n, n]).thresholds(thresholds)(values);
+  const sx = b.w / (n - 1), sy = b.h / (n - 1);
+  for (const co of cs) for (const poly of co.coordinates) for (const ring of poly) {
+    if (ring.length < 9) continue;
+    const pts = ring.map(([x, y]) => [b.x0 + x * sx, b.y0 + y * sy]);
+    let perimeter = 0;
+    for (let i = 1; i < pts.length; i++) perimeter += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (perimeter > 24) polyline(p, pts, true);
+  }
+}
 function makePoints(p, n, jitter = 1) { const b = bounds(), pts = []; const cols = Math.ceil(Math.sqrt(n * b.w / b.h)), rows = Math.ceil(n / cols), cw = b.w / cols, ch = b.h / rows; for (let i = 0; i < n; i++) { const cx = i % cols, cy = Math.floor(i / cols); pts.push([b.x0 + (cx + .5 + p.random(-.45, .45) * jitter) * cw, b.y0 + (cy + .5 + p.random(-.45, .45) * jitter) * ch]); } return pts; }
 function voronoi(p, c) { const b = bounds(); let pts = makePoints(p, c.sites, c.jitter); for (let r = 0; r < c.relax; r++) { const d = Delaunay.from(pts), v = d.voronoi([b.x0, b.y0, b.x1, b.y1]); pts = pts.map((pt, i) => { const cell = v.cellPolygon(i); if (!cell) return pt; const avg = cell.reduce((a, q) => [a[0]+q[0], a[1]+q[1]], [0,0]); return [avg[0]/cell.length, avg[1]/cell.length]; }); } const d = Delaunay.from(pts), v = d.voronoi([b.x0, b.y0, b.x1, b.y1]); for (let i = 0; i < pts.length; i++) { const cell = v.cellPolygon(i); if (cell) polyline(p, cell, true); if (c.circles) p.circle(pts[i][0], pts[i][1], 3); } }
 function delaunayTriangles(p, c) { const pts = makePoints(p, c.points, c.jitter), d = Delaunay.from(pts); for (let i = 0; i < d.triangles.length; i += 3) { const tri = [pts[d.triangles[i]], pts[d.triangles[i+1]], pts[d.triangles[i+2]]]; const edges = [[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]]; if (edges.some(([a,b]) => Math.hypot(a[0]-b[0], a[1]-b[1]) > c.longEdge) || p.random() < c.prune) continue; polyline(p, tri, true); } }
