@@ -53,8 +53,8 @@ const generators = [
   { id: 'epicycloids', name: '12 Epicycloids / Spirograph', defaults: { R: 42, r: 17, d: 42, repeats: 7, samples: 1200 }, controls: {
     R: [10, 90, 1], r: [4, 55, 1], d: [4, 90, 1], repeats: [1, 16, 1], samples: [200, 4000, 1]
   }, draw: epicycloids },
-  { id: 'bezier-flow-fields', name: '13 Bezier Flow Fields', defaults: { curves: 100, scale: 0.018, length: 38, bend: 0.82 }, controls: {
-    curves: [5, 260, 1], scale: [0.002, 0.04, .001], length: [10, 110, 1], bend: [0, 1.8, .01]
+  { id: 'bezier-flow-fields', name: '13 Bezier Flow Fields', defaults: { curves: 68, scale: 0.010, length: 138, bend: 0.52 }, controls: {
+    curves: [5, 260, 1], scale: [0.002, 0.04, .001], length: [10, 180, 1], bend: [0, 1.8, .01]
   }, draw: bezierFlowFields },
   { id: 'space-filling-curves', name: '14 Space Filling Curves', defaults: { order: 5, margin: 20, wobble: 0, skip: 1 }, controls: {
     order: [1, 7, 1], margin: [6, 60, 1], wobble: [0, 6, .25], skip: [1, 8, 1]
@@ -253,29 +253,42 @@ function attractorSystems(p, c) { const sigma = 10, rho = 28, beta = 8 / 3, dt =
 function rosettes(p, c) { p.translate(W/2,H/2); for (let ring=0; ring<c.rings; ring++) { const phase = ring * p.TAU / (c.rings * 2); const scale = 1 - ring * .055; p.beginShape(); for (let i=0; i<=c.samples; i++) { const t = i/c.samples*p.TAU; const rr = c.radius * scale * Math.sin(c.petals * t / 2 + phase) * (1 + c.modulation * .12 * Math.sin(t * c.petals)); p.vertex(Math.cos(t)*rr, Math.sin(t)*rr); } p.endShape(); } p.circle(0, 0, c.radius * .18); }
 function epicycloids(p, c) { p.translate(W/2,H/2); p.beginShape(); for (let i=0;i<=c.samples;i++) { const t=i/c.samples*p.TAU*c.repeats; const x=(c.R+c.r)*Math.cos(t)-c.d*Math.cos(((c.R+c.r)/c.r)*t); const y=(c.R+c.r)*Math.sin(t)-c.d*Math.sin(((c.R+c.r)/c.r)*t); p.vertex(x,y); } p.endShape(); }
 function bezierFlowFields(p, c) {
-  const b0 = bounds(), pad = 10, b = { x0: b0.x0 + pad, y0: b0.y0 + pad, x1: b0.x1 - pad, y1: b0.y1 - pad, w: b0.w - pad * 2, h: b0.h - pad * 2 };
-  const cols = Math.ceil(Math.sqrt(c.curves * b.w / b.h)), rows = Math.ceil(c.curves / cols);
-  const inside = (...pts) => pts.every(([x, y]) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1);
+  const b0 = bounds(), pad = 13;
+  const b = { x0: b0.x0 + pad, y0: b0.y0 + pad, x1: b0.x1 - pad, y1: b0.y1 - pad, w: b0.w - pad * 2, h: b0.h - pad * 2 };
+  const ext = { x0: b.x0 - 56, y0: b.y0 - 56, x1: b.x1 + 56, y1: b.y1 + 56 };
+  const fieldAngle = (x, y) => {
+    const nx = (x - b.x0) / b.w, ny = (y - b.y0) / b.h;
+    const base = -.015 + ny * .09;
+    const broadWave = Math.sin(ny * p.TAU * 1.55 + nx * 1.6) * .30;
+    const curl = (p.noise(x * c.scale, y * c.scale) - .5) * .88 * c.bend;
+    return base + broadWave + curl;
+  };
+  const drawBezierPath = (pts) => {
+    const smooth = pts.filter((_, idx) => idx % 5 === 0);
+    if (smooth.length < 4) return;
+    for (let i = 0; i < smooth.length - 1; i++) {
+      const p0 = smooth[Math.max(0, i - 1)], p1 = smooth[i], p2 = smooth[i + 1], p3 = smooth[Math.min(smooth.length - 1, i + 2)];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      p.bezier(p1[0], p1[1], c1[0], c1[1], c2[0], c2[1], p2[0], p2[1]);
+    }
+  };
   for (let i = 0; i < c.curves; i++) {
-    const col = i % cols, row = Math.floor(i / cols);
-    const gx = (col + .5) / cols, gy = (row + .5) / rows;
-    let x = b.x0 + gx * b.w + p.random(-b.w / cols * .14, b.w / cols * .14);
-    let y = b.y0 + gy * b.h + p.random(-b.h / rows * .14, b.h / rows * .14);
-    const wave = Math.sin(gy * p.TAU * 1.55 + gx * 1.65) * .36;
-    const diagonal = -.22 + gy * .34;
-    const noiseTurn = (p.noise(x * c.scale, y * c.scale) - .5) * .82 * c.bend;
-    const angle = diagonal + wave + noiseTurn;
-    const len = c.length * p.random(.72, 1.18);
-    const curve = len * (.27 + p.random(.02, .08)) * c.bend;
-    const x0 = x - Math.cos(angle) * len / 2, y0 = y - Math.sin(angle) * len / 2;
-    const x3 = x + Math.cos(angle) * len / 2, y3 = y + Math.sin(angle) * len / 2;
-    const bendDir = Math.sin(gy * p.TAU * 1.55 + gx * 1.1) > 0 ? 1 : -1;
-    const a1 = angle + bendDir * p.random(.28, .48) * c.bend;
-    const a2 = angle - bendDir * p.random(.28, .48) * c.bend;
-    const x1 = x0 + Math.cos(a1) * curve, y1 = y0 + Math.sin(a1) * curve;
-    const x2 = x3 - Math.cos(a2) * curve, y2 = y3 - Math.sin(a2) * curve;
-    if (!inside([x0, y0], [x1, y1], [x2, y2], [x3, y3])) continue;
-    p.bezier(x0, y0, x1, y1, x2, y2, x3, y3);
+    const t = i / Math.max(1, c.curves - 1);
+    let x = b.x0 + p.random(-28, -8);
+    let y = b.y0 + t * b.h + p.random(-2.8, 2.8);
+    if (i % 7 === 0) { x = b.x0 + p.random(0, b.w * .24); y = b.y0 + p.random(0, b.h); }
+    const pts = [];
+    const step = 1.20, steps = Math.floor(c.length * p.random(.94, 1.20));
+    for (let s = 0; s < steps; s++) {
+      const inFrame = x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+      if (inFrame) pts.push([x, y]);
+      const a = fieldAngle(x, y);
+      x += Math.cos(a) * step;
+      y += Math.sin(a) * step;
+      if (x < ext.x0 || x > ext.x1 || y < ext.y0 || y > ext.y1) break;
+    }
+    if (pts.length > 18) drawBezierPath(pts);
   }
 }
 function hilbert(i, order) { let x=0,y=0; for(let s=1, t=i; s < (1<<order); s*=2) { const rx = 1 & (t/2), ry = 1 & (t ^ rx); if (ry === 0) { if (rx === 1) { x = s-1-x; y = s-1-y; } [x,y]=[y,x]; } x += s*rx; y += s*ry; t = Math.floor(t/4); } return [x,y]; }
