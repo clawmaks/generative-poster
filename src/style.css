@@ -25,9 +25,31 @@ select { margin-bottom: 12px; }
 .actions button:first-child { grid-column: 1 / -1; }
 button { cursor: pointer; font-weight: 700; background: #171717; color: #fff; border-color: #171717; }
 button:hover { background: #38332b; }
-#gui .lil-gui { --background-color: transparent; --widget-color: #ebe3d5; --hover-color: #e1d6c5; --focus-color: #cabda9; --number-color: #171717; --string-color: #171717; width: 100%; }
+#gui .lil-gui {
+  --background-color: #ffffff;
+  --text-color: #171717;
+  --title-background-color: #24211d;
+  --title-text-color: #ffffff;
+  --widget-color: #e9dfd0;
+  --hover-color: #ded1bf;
+  --focus-color: #c9baa5;
+  --number-color: #111111;
+  --string-color: #111111;
+  --font-size: 13px;
+  --input-font-size: 13px;
+  width: 100%;
+  color: #171717;
+  border: 1px solid #d7d0c2;
+  border-radius: 10px;
+  overflow: hidden;
+}
+#gui .lil-gui .name,
+#gui .lil-gui .widget,
+#gui .lil-gui input { color: #171717 !important; font-weight: 650; }
+#gui .lil-gui input[type="text"],
+#gui .lil-gui input[type="number"] { background: #fffaf1 !important; color: #111 !important; }
 #canvasWrap { display: grid; place-items: center; overflow: auto; padding: 32px; background: radial-gradient(circle at top, #fbfaf5, #e1dcce); }
-canvas { max-width: min(100%, calc(100vh * 0.78)); height: auto !important; box-shadow: 0 20px 80px rgba(0,0,0,.18); background: white; }
+canvas { width: min(72vh, 72vw, 640px) !important; height: auto !important; image-rendering: auto; box-shadow: 0 20px 80px rgba(0,0,0,.18); background: white; }
 details { margin-top: 16px; color: #6e675c; }
 details img { width: 100%; border-radius: 10px; margin-top: 10px; }
 @media (max-width: 900px) { body { overflow:auto; } #app { grid-template-columns: 1fr; height:auto; } #canvasWrap { min-height: 70vh; } }

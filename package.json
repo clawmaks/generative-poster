@@ -19,6 +19,7 @@
     "simplex-noise": "latest"
   },
   "devDependencies": {
+    "playwright": "^1.59.1",
     "vite": "latest"
   }
 }

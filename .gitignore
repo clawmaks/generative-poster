@@ -6,3 +6,5 @@ node_modules
 *.log
 # Local source clone requested for reference; app uses npm package + public copy.
 vendor/p5.plotSvg/
+# Local verification screenshots/metrics.
+verification/
