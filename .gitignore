@@ -1,0 +1,8 @@
+dist
+node_modules
+.DS_Store
+.env
+.env.local
+*.log
+# Local source clone requested for reference; app uses npm package + public copy.
+vendor/p5.plotSvg/

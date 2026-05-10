@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generative Poster Plotter Generators</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="panel">
+        <div class="brand">Generative Poster</div>
+        <p>Plotter-friendly p5.js generators with live knobs and SVG export.</p>
+        <label class="select-label">Generator</label>
+        <select id="generatorSelect"></select>
+        <div class="actions">
+          <button id="randomSeed">Random seed</button>
+          <button id="exportSvg">Export SVG</button>
+          <button id="exportPng">Export PNG</button>
+        </div>
+        <div id="gui"></div>
+        <details>
+          <summary>Reference poster</summary>
+          <img src="/reference-poster.jpg" alt="Generative vector graphics poster reference" />
+        </details>
+      </aside>
+      <main id="canvasWrap"></main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

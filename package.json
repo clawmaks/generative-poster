@@ -1,0 +1,24 @@
+{
+  "name": "generative-poster",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "p5.js/Vite plotter-friendly generators inspired by a generative vector graphics poster.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "lint": "node scripts/check-generators.mjs"
+  },
+  "dependencies": {
+    "d3-contour": "latest",
+    "d3-delaunay": "latest",
+    "lil-gui": "latest",
+    "p5": "^1.11.3",
+    "p5.plotsvg": "latest",
+    "simplex-noise": "latest"
+  },
+  "devDependencies": {
+    "vite": "latest"
+  }
+}
